@@ -1,11 +1,15 @@
-"""Update 2.2.1
--Eliminated excess print commands
--Updated Comments"
 """
+Update 2.4
+-Added chimeric sequence output to csv files 
+"""
+#Inputs PDB file, Fasta alignment(pdb_sequence, parent 1, parent 2)
+#Outputs 2 CSVs (dc.csv and sc.csv, double and single crossovers respectively) 
+#Call: python distruption.py pdb_file fasta_file
 
 import re
 import os
 import sys
+import csv
 """Note: Alignment file must have no line breaks in the middle of each sequence."""
 
 #Returns raw coordinates of all atoms and strand breaks
@@ -29,30 +33,29 @@ def get_coordinates(pdb_file):
     return coordinates 
 
 # Takes alignment file and list of residue identities of chimera parents and given structure sequence    
-def get_alignment_matrix(mafft_file):
+def get_alignment_matrix(fasta_file):
     
-    open_mafft_file = open(mafft_file, 'rU')
-    read_open_mafft_file = open_mafft_file.read()
-    
-    raw_align = re.findall(r'>(\w+)\s+([\w-]+)', read_open_mafft_file)
-    
-    global align
-    align = []
-    for s in raw_align:
-       align.append([s[0]] + list(s[1]))
-
-
-# Gets the true length of the sequence structure- this serves mainly to exclude holes at the end
+	open_fasta_file = open(fasta_file, 'rU')
+	read_open_fasta_file = open_fasta_file.read()
+	
+	raw_align = re.findall(r'>(\w+)\s+([\w-]+)', read_open_fasta_file)
+	
+	global align
+	align = []
+	for s in raw_align:
+		align.append([s[0]] + list(s[1]))
+		
+# Gets the true length of the sequence structure- this serves mainly to exclude holes at the end and to calculate possible crossovers
 def get_structure_true_length(matrix_align):
-    struc_seq = matrix_align[0] #[1:] because must exclude name
-    n = 1
-    while struc_seq[-n] == "-":
-        n +=1
+	struc_seq = matrix_align[0] #[1:] because must exclude name
+	n = 1
+	while struc_seq[-n] == "-":
+		n +=1
     
-    global true_length
-    true_length = len(matrix_align[0][:-n])
-    """print "True!"
-    print true_length"""
+	global true_length
+	true_length = len(matrix_align[0][:-n])
+	"""print "True!"
+	print true_length"""
 # The converse of the previous function- this helps me set up indices later that will exclude holes in the beginning    
 def get_true_start(matrix_align):
     struc_seq = matrix_align[0]
@@ -361,77 +364,225 @@ def top_half_grabber(scrubbed_matrix):
     print str(zero_final) + "--zeroes_final"
     print str(one_final) + "--ones_final"
 
-def disruption_counter(crossover_string):
+def doublecross_maker(true_length):
+    #all double crossovers, series of triangular numbers of combinations where n = length-2
+    global doublecross
+    doublecross = []
 
-    open_crossover_file = open(crossover_string, 'rU')
-    read_open_crossover_file = open_crossover_file.read()
-    
-    #Grabs the whole file which should only be A's and B's without spacing of any kind
-    crossover = re.findall(r'\w+', read_open_crossover_file)
-    crossover_list = list(''.join(crossover)) #converts 1 element list into string and then makes a list of each character
-    
-    count_letter = "A"
-    start = -1 # start at negative one so start will represent the index of my first "B"
-    
-    for letter in range(0, len(crossover_list)):
-        start +=1
-        count_letter = crossover_list[start]
-        if count_letter == "B":
-            break
-    
-    print "Start:" + str(start)
-        
-    end = -1 # start at negative one so start will represent the index of my first "B"
-    
-    for letter in range(0, len(crossover_list)):
-        end +=1
-        count_letter = crossover_list[end]
-        if count_letter == "C":
-            break
-    
-    print "End:" + str(end)
-    print crossover_list[start:end]
-    
-    #Now, finally for the final count
-    disruption_count = 0
-    it_count= 0
-    
-    # Column Count
-    for x in final_matrix[start:end]:
-        for y in x[:start]:# I have to control for overlap by limiting how far down the column count will go
-            disruption_count += y
-            it_count += 1
-            #print "Value:" + str(y)
+    for i in range(1, int(true_length)):
+        for k in range((i+1), int(true_length)):
+            start = i 
+            end = k
+            list = []
+            for a in range(0, int(start)):
+                list.append("A")    
+
+            for b in range(int(start), int(end)):
+                list.append("B")
+
+            for c in range(int(end), int(true_length)):
+                list.append("C") 
+
+            doublecross.append(list)
             
-    #print "Disruptions:" + str(disruption_count)
-    print end-start    
-    
-    # Row Count
-    for x in final_matrix[end:]:#I have to avoid counting the interactions that are carried over by the crossover
-        for y in x[start:end]:
-            disruption_count +=y
-            it_count += 1
+def singlecross_maker(true_length):
+    #all single crossovers, series of even numbers of combinations 
+    global singlecross
+    singlecross = []
 
-    #print "Iterations:" + str(it_count)
-    print "Disruptions:" + str(disruption_count)
+    for i in range(1, int(true_length)):
+
+        start = i 
+        list = []
+        for a in range(0, int(start)):
+            list.append("A")    
+
+        for b in range(int(start), int(true_length)):
+            list.append("B")
+
+        singlecross.append(list)
+
+    for i in range(1,int(true_length)):
+
+        start = i 
+        list = []
+        for b in range(0, int(start)):
+            list.append("B")
+
+        for a in range(int(start), int(true_length)):
+            list.append("A")    
+
+        singlecross.append(list)
+    
+def disruption_counter(crossover, file_out):
+	writer = csv.writer(open(file_out,'w'))
+	writer.writerow(['start', 'end','# of AA Recombined', 'Hamming Distance - P1', 'disruption', 'P1->P2 Sequence', 'seq_length', 'P1 Hamming', 'P1 mutation', 'P2 mutation', 'Hamming Distance - P2', 'P2->P1 Sequence', 'P2P1 P1 mutations'])
+	for l in range(0, len(crossover)):
+		crossover_list = crossover[l]
+  
+		count_letter = "A"
+		start = -1 # start at negative one so start will represent the index of my first "B"
+
+		for letter in range(0, len(crossover_list)):
+			start +=1
+			count_letter = crossover_list[start]
+			if count_letter == "B":
+				break
+
+		print "Start:" + str(start)
+
+		end = -1 # start at negative one so start will represent the index of my first "B"
+
+		for letter in range(0, len(crossover_list)):
+			end +=1
+			count_letter = crossover_list[end]
+			if count_letter == "C":
+				break
+
+		print "End:" + str(end)
+		print "# of AA Recombined:" + str(len(crossover_list[start:end]))
+
+        #Hamming Distance calculation
+		hd = 0
+		for h in range(start,end):
+			if sum(final_matrix[h]) != 0:
+				hd += 1
+                 
+		#P1-P2 Sequence generator 
+		gap_sequence = align[1][1:(start+1)]+ align[2][(start+1):(end+1)] + align[1][(end+1):(true_length+1)]
+		nongap_indices = [i for i, x in enumerate(gap_sequence) if x != "-"]
+		nongap_sequence = [gap_sequence[k] for k in nongap_indices]
+		sequence = ''.join(nongap_sequence)
+		sequence_length = len(nongap_sequence)
+		
+		#P1->P2 Parent 1 Mutations
+		P1_fragment = align[1][(start+1):(end+1)]
+		P2_fragment = align[2][(start+1):(end+1)]
+		
+		mutations = list()
+		count_gaps = 0
+		for i in range(0,len(P2_fragment)):
+			P2res = P2_fragment[i]
+			P1res = P1_fragment[i]
+			if P1res != P2res:
+				location = int(1+i)
+				for k in range(0, len(P1res)):
+					if P1res[k] == '-':
+						count_gaps +=  1
+				mut = str(P1res) + str(location-count_gaps) + str(P2res)
+				mutations.append(mut)
+		P1_mutations = ','.join(mutations)
+		P1hamdist = len(mutations)
+		
+		#P1->P2 Parent 2 Mutations
+		P1_fragment1 = align[1][1:(start+1)]
+		P1_fragment2 = align[1][(end+1):(true_length+1)]
+		P2_fragment1 = align[2][1:(start+1)]
+		P2_fragment2 = align[2][(end+1):(true_length+1)]
+		
+		mutations = list()
+		count_gaps = 0
+		for i in range(0,len(P2_fragment1)):
+			P2res1 = P2_fragment1[i]
+			P1res1 = P1_fragment1[i]
+			if P1res1 != P2res1:
+				location = int(1+i)
+				for k in range(0, len(P2res1)):
+					if P2res1[k] == '-':
+						count_gaps +=  1
+				mut = str(P1res1) + str(location-count_gaps) + str(P2res1)
+				mutations.append(mut)
+		count_gaps = 0
+		for k in range(0,len(P2_fragment2)):
+			P2res2 = P2_fragment2[k]
+			P1res2 = P1_fragment2[k]
+			if P1res2 != P2res2:
+				location = int(end+1+k)
+				for k in range(0, len(P2res2)):
+					if P2res2[k] == '-':
+						count_gaps +=  1
+				mut = str(P1res2) + str(location-count_gaps) + str(P2res2)
+				mutations.append(mut)
+		P2_mutations = ','.join(mutations)
+		P2_mut_length = len(mutations)
+		P2hammdist = len(mutations)
+		
+		#P2-P1 Sequence generator 
+		p2p1gap_sequence = align[2][1:(start+1)]+ align[1][(start+1):(end+1)] + align[2][(end+1):(true_length+1)]
+		p2p1nongap_indices = [i for i, x in enumerate(p2p1gap_sequence) if x != "-"]
+		p2p1nongap_sequence = [p2p1gap_sequence[k] for k in p2p1nongap_indices]
+		p2p1sequence = ''.join(p2p1nongap_sequence)
+		p2p1sequence_length = len(p2p1nongap_sequence)
+		
+		#P2-P1 Parent 1 Mutations
+		P2P1_P2P1_P1_fragment = align[1][(start+1):(end+1)]
+		P2P1_P2_fragment = align[2][(start+1):(end+1)]
+		
+		mutations = list()
+		count_gaps = 0
+		for i in range(0,len(P2P1_P2_fragment)):
+			P2P1_P2res = P2P1_P2_fragment[i]
+			P2P1_P2P1_P1res = P2P1_P2P1_P1_fragment[i]
+			if P2P1_P2P1_P1res != P2P1_P2res:
+				location = int(1+i)
+				for k in range(0, len(P2P1_P2P1_P1res)):
+					if P2P1_P2P1_P1res[k] == '-':
+						count_gaps +=  1
+				mut = str(P2P1_P2res) + str(location-count_gaps) +str(P2P1_P2P1_P1res) 
+				mutations.append(mut)
+		P2P1_P2P1_P1_mutations = ','.join(mutations)
+		
+		#Now, finally for the final count
+		disruption_count = 0
+		it_count= 0
+
+		# Column Count
+		for x in final_matrix[start:end]:
+			for y in x[:start]:# I have to control for overlap by limiting how far down the column count will go
+				disruption_count += y
+				it_count += 1
+				#print "Value:" + str(y)
+
+		#print "Disruptions:" + str(disruption_count)
+		#print end-start    
+
+		# Row Count
+		for x in final_matrix[end:]:#I have to avoid counting the interactions that are carried over by the crossover
+			for y in x[start:end]:
+				disruption_count +=y
+				it_count += 1
+
+		#print "Iterations:" + str(it_count)
+		print "Disruptions:" + str(disruption_count) + "\n"
+		writer.writerow([str(start), str(end), len(crossover_list[start:end]),str(hd), str(disruption_count), str(sequence), sequence_length, P1_mutations, P1hamdist, p2p1sequence, P2P1_P2P1_P1_mutations])
+		
+		print "CSV written to folder"
 
 def main():
-    get_coordinates(sys.argv[1])
-    get_alignment_matrix(sys.argv[2])
-    get_structure_true_length(align)
-    get_true_start(align)
-    res_into_atoms_dict_maker(coordinates)
-    atom_into_res_dict_maker(coordinates)
+	get_coordinates(sys.argv[1])
+	get_alignment_matrix(sys.argv[2])
+	get_structure_true_length(align)
+	
+	get_true_start(align)
+	res_into_atoms_dict_maker(coordinates)
+	atom_into_res_dict_maker(coordinates)
     
     
-    distance(coordinates)
-    contact_matrix(d)
+	distance(coordinates)
+	contact_matrix(d)
     
-    atoms_into_res_contact(contacts, align)
+	atoms_into_res_contact(contacts, align)
    
-    remove_struc_seq_mismatches(align, contacts)
-    remove_non_breakables(align, cleaned_matrix)
-    top_half_grabber(breakable_matrix)
-    disruption_counter(sys.argv[3])
+	remove_struc_seq_mismatches(align, contacts)
+	remove_non_breakables(align, cleaned_matrix)
+	top_half_grabber(breakable_matrix)
+	
+	doublecross_maker(true_length)
+	singlecross_maker(true_length)
+	disruption_counter(doublecross, 'Outputs/dc.csv')
+	disruption_counter(singlecross, 'Outputs/sc.csv')
+	 
+	
+  
 if __name__ == '__main__':
-    main()
+    main() 

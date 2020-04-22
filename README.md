@@ -1,7 +1,7 @@
 # SCHEMA
 SCHEMA algorithm for protein structure-guided recombination 
 
-The pdb.search.and.grab.test.2.2.1.py takes in three data sets: 
+The all_disruptions.py takes in three data sets: 
 pdb structure file, an alignment file, and a crossover file.
 
 All three should be in .txt format.
