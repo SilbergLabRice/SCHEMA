@@ -1,13 +1,8 @@
 # SCHEMA
-SCHEMA algorithm for protein structure-guided recombination 
+SCHEMA algorithm for protein structure-guided recombination written for Python 2.7
 
-The all_disruptions.py takes in three data sets: 
-pdb structure file, an alignment file, and a crossover file.
-
-All three should be in .txt format.
-
-The pdb structure can be downloaded in this format from the 
-pdb website.
+The all_disruptions.py takes in two data sets: 
+(1) PDB structure file and (2) an FASTA-formatted alignment file
 
 The alignment file must be in fasta format and not have white
 spaces between residues. It must have an alignment of the structure
@@ -15,6 +10,10 @@ sequence and the two parent chimera sequences.  The included
 sequence_grabber.py script can obtain the sequence from the pdb
 file. I often use MAFFT, selecting FASTA format, to make the 
 alignments. 
+
+General inputs: python all_disruptions.py <PDB> <Alignment> 
+
+
 Here is an example:
 
 \>AAAA 
