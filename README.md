@@ -1,5 +1,5 @@
 # SCHEMA
-SCHEMA algorithm for protein structure-guided recombination written for Python 2.7
+SCHEMA algorithm for protein structure-guided recombination written for Python 2.7 by Ian Campbell and Josh Atkinson in the Silberg Lab at Rice University
 
 The all_disruptions.py takes in two data sets: 
 (1) PDB structure file and (2) an FASTA-formatted alignment file
