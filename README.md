@@ -17,12 +17,12 @@ file. I often use MAFFT, selecting FASTA format, to make the
 alignments. 
 Here is an example:
 
-\>AAAA \n
-TWYRAPSQIL\n
-\>seq_one \n
-TWYRAPSQID \n
-\>seq_three \n
-ARDVOARDVO \n
+\>AAAA 
+TWYRAPSQIL
+\>seq_one 
+TWYRAPSQID 
+\>seq_three 
+ARDVOARDVO
 
 The crossover file can be made via cross_maker.py. Instructions
 for use are included in comments within the cross_maker.py file.
